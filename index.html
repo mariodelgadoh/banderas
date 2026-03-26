@@ -48,7 +48,6 @@
             z-index: 2;
         }
 
-        /* Header del juego */
         .game-header {
             display: flex;
             justify-content: space-between;
@@ -135,7 +134,6 @@
             line-height: 1;
         }
 
-        /* Bandera */
         .flag-container {
             width: 100%;
             max-width: 400px;
@@ -156,7 +154,6 @@
             object-fit: cover;
         }
 
-        /* Opciones */
         .options-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -189,14 +186,12 @@
             background: linear-gradient(135deg, #48bb78, #38a169);
             border-color: #2f855a;
             color: white;
-            animation: pulse 0.5s ease;
         }
 
         .option-btn.wrong {
             background: linear-gradient(135deg, #f56565, #e53e3e);
             border-color: #c53030;
             color: white;
-            animation: shake 0.3s ease;
         }
 
         .option-btn.disabled {
@@ -205,18 +200,6 @@
             pointer-events: none;
         }
 
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-
-        /* Mensajes */
         .message {
             text-align: center;
             padding: 12px;
@@ -252,7 +235,6 @@
             }
         }
 
-        /* Modal */
         .modal {
             display: flex;
             position: fixed;
@@ -359,7 +341,6 @@
             to { transform: rotate(360deg); }
         }
 
-        /* Footer */
         .footer {
             text-align: center;
             padding: 20px;
@@ -490,7 +471,7 @@
         </div>
 
         <div class="footer">
-            <p> Desarrollado</span> por: <strong>Mario Jesús Delgado Hernández</strong></p>
+            <p>✨ Desarrollado por: <strong>Mario Jesús Delgado Hernández</strong> ✨</p>
         </div>
     </div>
 
@@ -514,7 +495,7 @@
                 <p style="font-size: 18px; margin-bottom: 10px;">📊 <strong>Puntuación final:</strong> <span id="finalScoreSpan">0</span></p>
                 <p style="font-size: 18px; margin-bottom: 20px;">✅ <strong>Aciertos:</strong> <span id="finalCorrectSpan">0</span></p>
             </div>
-            <button class="modal-btn" id="playAgainBtn"> JUGAR DE NUEVO</button>
+            <button class="modal-btn" id="playAgainBtn">🔄 JUGAR DE NUEVO</button>
         </div>
     </div>
 
@@ -530,6 +511,7 @@
         let currentUser = null;
         let answered = false;
         let isTransitioning = false;
+        let transitionTimeout = null;
         
         const flagImage = document.getElementById('flagImage');
         const flagLoader = document.getElementById('flagLoader');
@@ -603,9 +585,10 @@
             const correctNameEs = correctCountry.nameEs;
             const options = [correctNameEs];
             const otherCountries = allCountriesList.filter(c => c.name !== correctCountry.name);
-            shuffleArray(otherCountries);
-            for (let i = 0; i < 3 && otherCountries.length > i; i++) {
-                options.push(otherCountries[i].nameEs);
+            const shuffledOthers = [...otherCountries];
+            shuffleArray(shuffledOthers);
+            for (let i = 0; i < 3 && shuffledOthers.length > i; i++) {
+                options.push(shuffledOthers[i].nameEs);
             }
             shuffleArray(options);
             return options;
@@ -641,10 +624,28 @@
             });
         }
         
+        function clearOptions() {
+            // Limpiar completamente el contenedor de opciones
+            optionsContainer.innerHTML = '';
+            // Resetear variables de estado
+            answered = false;
+            isTransitioning = false;
+        }
+        
         async function displayNewQuestion() {
+            // Limpiar cualquier timeout pendiente
+            if (transitionTimeout) {
+                clearTimeout(transitionTimeout);
+                transitionTimeout = null;
+            }
+            
+            // Limpiar opciones anteriores completamente
+            clearOptions();
+            
+            // Cargar nueva pregunta
             await loadNewQuestion();
             
-            optionsContainer.innerHTML = '';
+            // Crear nuevos botones
             const prefixes = ['A', 'B', 'C', 'D'];
             currentOptions.forEach((option, idx) => {
                 const btn = document.createElement('button');
@@ -656,10 +657,6 @@
             
             answered = false;
             isTransitioning = false;
-            document.querySelectorAll('.option-btn').forEach(btn => {
-                btn.disabled = false;
-                btn.classList.remove('correct', 'wrong', 'disabled');
-            });
         }
         
         function gameOver() {
@@ -669,6 +666,12 @@
         }
         
         function resetGame() {
+            // Limpiar timeouts pendientes
+            if (transitionTimeout) {
+                clearTimeout(transitionTimeout);
+                transitionTimeout = null;
+            }
+            
             score = 0;
             correctAnswers = 0;
             currentLives = 3;
@@ -681,16 +684,19 @@
         }
         
         async function checkAnswer(selectedOption, buttonElement) {
+            // Evitar múltiples respuestas o si ya está en transición
             if (answered || isTransitioning) return;
             
             const isCorrect = (selectedOption === currentCountry.nameEs);
             
+            // Deshabilitar todos los botones inmediatamente
             const allButtons = document.querySelectorAll('.option-btn');
             allButtons.forEach(btn => {
                 btn.disabled = true;
                 btn.classList.add('disabled');
             });
             
+            // Marcar la respuesta correcta
             allButtons.forEach(btn => {
                 if (btn.textContent.includes(currentCountry.nameEs)) {
                     btn.classList.add('correct');
@@ -698,6 +704,7 @@
             });
             
             if (!isCorrect) {
+                // Marcar la opción seleccionada como incorrecta
                 buttonElement.classList.add('wrong');
                 currentLives--;
                 updateLivesDisplay();
@@ -706,15 +713,16 @@
                 
                 if (currentLives <= 0) {
                     showMessage('💀 ¡GAME OVER! Se acabaron tus vidas 💀', 'warning');
-                    setTimeout(() => gameOver(), 1500);
+                    transitionTimeout = setTimeout(() => gameOver(), 1500);
                     return;
                 } else {
                     isTransitioning = true;
-                    setTimeout(() => {
+                    transitionTimeout = setTimeout(() => {
                         displayNewQuestion();
                     }, 2000);
                 }
             } else {
+                // Respuesta correcta
                 buttonElement.classList.add('correct');
                 const pointsEarned = 100;
                 score += pointsEarned;
@@ -723,7 +731,7 @@
                 updateScoreDisplay();
                 answered = true;
                 isTransitioning = true;
-                setTimeout(() => {
+                transitionTimeout = setTimeout(() => {
                     displayNewQuestion();
                 }, 800);
             }
@@ -782,6 +790,11 @@
         function restartGame() {
             gameOverModal.classList.add('hidden');
             if (currentUser) {
+                // Limpiar timeouts pendientes
+                if (transitionTimeout) {
+                    clearTimeout(transitionTimeout);
+                    transitionTimeout = null;
+                }
                 score = 0;
                 correctAnswers = 0;
                 currentLives = 3;
